@@ -25,18 +25,8 @@ https://api.open-meteo.com/v1/forecast
 
 **What do we measure?** Temperature (°C), humidity (%), rain (mm), air pressure (hPa), wind speed (km/h) and cloud cover (%).
 
-**Example of an answer from the API** (we tested it in the browser for Paris):
-```json
-{
-  "latitude": 48.853382,
-  "longitude": 2.355208,
-  "timezone": "GMT",
-  "elevation": 46,
-  "current": {"time": "2026-11-05T21:30", "interval": 900,
-              "temperature_2m": 10, "wind_speed_10m": 5.4}
-}
-```
-`"interval": 900` means the data changes every 900 seconds, so every 15 minutes.
+<img width="672" height="319" alt="image" src="https://github.com/user-attachments/assets/e7d6e3b2-961c-43e6-a6b7-755796d19d8d" />
+
 
 **How many events?** 8 cities, updated 4 times per hour = 32 events per hour, about 770 per day.
 That is about **0.01 events per second**. This is small, so for the machine learning part we will also download past weather data from Open-Meteo (they have data since 1940).
