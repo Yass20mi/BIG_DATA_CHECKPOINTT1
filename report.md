@@ -1,82 +1,110 @@
 # Report 1: Data, Service and ML Brief
 
-**Group:** Grace Diagoné
+**Group:** NAME 1, NAME 2, NAME 3
 **Repository:** https://github.com/Yass20mi/Big-data-Checkpoint-1
+**Date:** November 5, 2026
 
-## 1. Stream
+---
 
-- **Domain:** Weather in 8 French cities (Paris, Lyon, Marseille, Toulouse, Lille, Bordeaux, Nantes, Strasbourg).
-- **Source:** Open-Meteo Forecast API (current weather).
-- **Endpoint:** `https://api.open-meteo.com/v1/forecast?latitude=...&longitude=...&current=temperature_2m,relative_humidity_2m,precipitation,pressure_msl,wind_speed_10m,cloud_cover&timezone=GMT`
-  All 8 cities are requested in one call (comma-separated latitudes and longitudes).
-- **Protocol:** REST over HTTPS, JSON response. Our Python producer polls the API every 15 minutes.
-- **Sample payload** (real test, Paris, 2026-11-05 21:30 UTC):
+## 1. Our data stream
 
-    {
-      "latitude": 48.853382,
-      "longitude": 2.355208,
-      "timezone": "GMT",
-      "elevation": 46,
-      "current_units": {"time": "iso8601", "interval": "seconds",
-                        "temperature_2m": "°C", "wind_speed_10m": "km/h"},
-      "current": {"time": "2026-11-05T21:30", "interval": 900,
-                  "temperature_2m": 10, "wind_speed_10m": 5.4}
-    }
+**What data?** We use live weather data for 8 French cities: Paris, Lyon, Marseille, Toulouse, Lille, Bordeaux, Nantes and Strasbourg.
 
-- **Expected throughput:** values are updated every 15 min (`"interval": 900`).
-  8 cities x 4 updates per hour = 32 events/hour = about 770 events/day = **about 0.01 events/second**.
-  Because the live stream is small, we will add historical hourly data from the same source
-  (Open-Meteo Historical Weather API, available since 1940) for the ML part.
-- **Licence:** CC BY 4.0 (attribution: "Weather data by Open-Meteo.com"), free for non-commercial use.
-- **Rate limits:** 10,000 calls/day, 5,000/hour, 600/minute. Each city counts as one call,
-  so we use 8 x 96 = 768 calls/day (less than 8% of the limit).
-- **Keys:** no API key needed.
+**Where does it come from?** From Open-Meteo, a free weather website with an API. We do not need an account or an API key.
 
-## 2. Problem and service
+**How do we get it?** We send a normal web request (REST, HTTPS). The answer is in JSON.
+We ask for the 8 cities in one single request: we give the 8 latitudes and the 8 longitudes, separated by commas.
 
-- **Question:** What will the temperature be in one hour in each city?
-  We also monitor bad weather (strong wind, heavy rain, frost) in real time.
-- **KPIs on the Grafana dashboard:**
-  - Domain: current temperature per city; hourly average / min / max temperature;
-    precipitation per hour; wind speed; number of alerts (wind > 50 km/h, rain > 4 mm/h, temperature < 0 °C).
-  - Pipeline health: events received per minute, input vs processed rows per second, batch duration.
-  - Model quality: predicted vs actual temperature, average error over the last 24 hours.
+```
+https://api.open-meteo.com/v1/forecast
+  ?latitude=48.85,45.76,43.3,43.6,50.63,44.84,47.22,48.57
+  &longitude=2.35,4.84,5.37,1.44,3.06,-0.58,-1.55,7.75
+  &current=temperature_2m,relative_humidity_2m,precipitation,pressure_msl,wind_speed_10m,cloud_cover
+  &timezone=GMT
+```
 
-## 3. Kafka message
+**What do we measure?** Temperature (°C), humidity (%), rain (mm), air pressure (hPa), wind speed (km/h) and cloud cover (%).
 
-- **Topic:** `weather.current`, 6 partitions, replication factor 3, retention 7 days.
-- **Key:** `city_id` (e.g. `paris`). Same city -> same partition -> events of a city stay in order.
-- **Value (JSON):**
+**Example of an answer from the API** (we tested it in the browser for Paris):
+```json
+{
+  "latitude": 48.853382,
+  "longitude": 2.355208,
+  "timezone": "GMT",
+  "elevation": 46,
+  "current": {"time": "2026-11-05T21:30", "interval": 900,
+              "temperature_2m": 10, "wind_speed_10m": 5.4}
+}
+```
+`"interval": 900` means the data changes every 900 seconds, so every 15 minutes.
 
-| Field | Type | Example |
+**How many events?** 8 cities, updated 4 times per hour = 32 events per hour, about 770 per day.
+That is about **0.01 events per second**. This is small, so for the machine learning part we will also download past weather data from Open-Meteo (they have data since 1940).
+
+**Licence and limits:** the data is under the CC BY 4.0 licence (we must write "Weather data by Open-Meteo.com"). The free version allows 10,000 requests per day. We use about 770 per day, so we are far below the limit.
+
+## 2. Our question and our dashboard
+
+**The question:** *What will the temperature be in one hour in each city?*
+We also want to see bad weather quickly: strong wind, heavy rain or frost.
+
+**What the dashboard (Grafana) will show:**
+- The weather: the temperature now in each city, the average, minimum and maximum per hour, the rain, the wind, and the number of alerts (wind over 50 km/h, rain over 4 mm per hour, temperature under 0 °C).
+- The health of the pipeline: how many events arrive per minute, how fast Spark processes them, and the time since the last event of each city.
+- The quality of the model: the predicted temperature next to the real temperature, and the average error.
+
+## 3. Our Kafka message
+
+We will send one message per city, every 15 minutes, to the Kafka topic `weather.current`.
+The topic will have 6 partitions and a replication factor of 3 (one copy on each of our 3 Kafka machines). Messages are kept for 7 days.
+
+**Key:** `city_id` (for example `paris`). All the messages of one city go to the same partition, so they stay in the right order.
+
+**Value:** a JSON message with these fields:
+
+| Field | Type | Meaning |
 |---|---|---|
-| event_id | string | paris_2026-11-05T21:30 |
-| city_id | string | paris |
-| event_time | timestamp (UTC) | 2026-11-05T21:30:00Z |
-| ingest_time | timestamp (UTC) | 2026-11-05T21:31:12+00:00 |
-| temperature_2m | double (°C) | 10.0 |
-| relative_humidity_2m | double (%) | 87 |
-| precipitation | double (mm) | 0.0 |
-| pressure_msl | double (hPa) | 1021.3 |
-| wind_speed_10m | double (km/h) | 5.4 |
-| cloud_cover | double (%) | 100 |
+| event_id | text | unique id = city + time of the measure |
+| city_id | text | name of the city |
+| event_time | date and time (UTC) | when the weather was measured |
+| ingest_time | date and time (UTC) | when our program received it |
+| temperature_2m | number | temperature in °C |
+| relative_humidity_2m | number | humidity in % |
+| precipitation | number | rain in mm |
+| pressure_msl | number | air pressure in hPa |
+| wind_speed_10m | number | wind speed in km/h |
+| cloud_cover | number | clouds in % |
 
-- **Event-time field:** `event_time`, taken from `current.time` in the API response. **Time zone: UTC.**
-  `ingest_time` is the time our producer received the data (UTC).
-- **Duplicates:** `event_id` = city + observation time, so the same observation always has the same id;
-  Spark removes duplicates with `dropDuplicates("event_id")`.
+**Time:** the event time is `event_time`. It comes from the API and it is in **UTC**.
 
-## 4. ML task
+**Why an event_id?** If our program restarts, it can send the same measure twice. The two copies have the same `event_id`, so Spark can delete the duplicate.
 
-- **Target:** temperature of the city **1 hour later** (regression, in °C).
-- **Features:** current temperature, humidity, pressure, wind speed, cloud cover, precipitation,
-  hour of the day, day of the year, temperatures of the last 3 hours, city.
-- **Model:** Spark MLlib (GBTRegressor) trained on the HDFS data on YARN, tuned with CrossValidator.
-- **Baseline to beat:** persistence: "the temperature in 1 hour = the temperature now" (last value).
-- **Evaluation metric:** MAE (mean absolute error, in °C); RMSE as a second metric.
+**A real message made by our program** (first line of our data file on the VM):
+```json
+{"event_id": "paris_2026-11-05T22:15", "city_id": "paris",
+ "event_time": "2026-11-05T22:15:00Z", "ingest_time": "2026-11-05T22:21:50.254915+00:00",
+ "temperature_2m": 9.8, "relative_humidity_2m": 72, "precipitation": 0.0,
+ "pressure_msl": 1023.1, "wind_speed_10m": 4.2, "cloud_cover": 100}
+```
+The weather was measured at 22:15 and our program got it at 22:21. This is why we keep both times.
 
-## 5. Status
+## 4. Our machine learning task
 
-- GitHub repository created (README, producer, this report).
-- Producer `producer.py` running on VM ESILV-MCSCIN5A1826-ST-0024: it collects the 8 cities
-  every 15 minutes and stores the raw events in `data/weather.jsonl`.
+- **What we predict (target):** the temperature in each city **one hour later**.
+- **What we use to predict (features):** the weather now (temperature, humidity, pressure, wind, clouds, rain), the hour of the day, the day of the year, the temperature of the last 3 hours, and the city.
+- **Data for training:** the data we collect + past data from Open-Meteo, saved in HDFS. We train on the past and test on the most recent weeks.
+- **Model:** a Spark MLlib model (Gradient-Boosted Trees), trained on our cluster.
+- **Baseline (the simple guess to beat):** "the temperature in one hour will be the same as now".
+- **How we measure the error:** MAE, the average error in degrees (°C). For example, MAE = 0.5 means we are wrong by 0.5 °C on average.
+
+## 5. Data collection: started
+
+- Our program `producer.py` is written in Python. It runs on our virtual machine **ESILV-MCSCIN5A1826-ST-0024** (name `master`).
+- **It started on November 5, 2026 at 22:21 UTC.** The first line of its log says: `2026-11-05T22:21:50.254915+00:00 ok 8 villes`.
+- Every 15 minutes, it asks Open-Meteo for the weather of the 8 cities and adds 8 new lines to the file `data/weather.jsonl`.
+- For now, the data is saved in a file because Kafka is not installed yet. In checkpoint 2, we will install Kafka and HDFS, and the program will send its messages to Kafka. We will also send the lines already collected.
+
+## 6. Who did what
+- **NAME 1:** GitHub repository, producer program, data collection on the VM, this report.
+- **NAME 2:** to complete.
+- **NAME 3:** to complete.
