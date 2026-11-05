@@ -1,6 +1,6 @@
 # Report 1: Data, Service and ML Brief
 
-**Group:** NAME 1, NAME 2, NAME 3
+**Group:** Grace Diagoné
 **Repository:** https://github.com/Yass20mi/Big-data-Checkpoint-1
 **Date:** November 5, 2026
 
