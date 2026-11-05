@@ -15,13 +15,13 @@
 **How do we get it?** We send a normal web request (REST, HTTPS). The answer is in JSON.
 We ask for the 8 cities in one single request: we give the 8 latitudes and the 8 longitudes, separated by commas.
 
-```
+
 https://api.open-meteo.com/v1/forecast
   ?latitude=48.85,45.76,43.3,43.6,50.63,44.84,47.22,48.57
   &longitude=2.35,4.84,5.37,1.44,3.06,-0.58,-1.55,7.75
   &current=temperature_2m,relative_humidity_2m,precipitation,pressure_msl,wind_speed_10m,cloud_cover
   &timezone=GMT
-```
+
 
 **What do we measure?** Temperature (°C), humidity (%), rain (mm), air pressure (hPa), wind speed (km/h) and cloud cover (%).
 
@@ -104,7 +104,5 @@ The weather was measured at 22:15 and our program got it at 22:21. This is why w
 - Every 15 minutes, it asks Open-Meteo for the weather of the 8 cities and adds 8 new lines to the file `data/weather.jsonl`.
 - For now, the data is saved in a file because Kafka is not installed yet. In checkpoint 2, we will install Kafka and HDFS, and the program will send its messages to Kafka. We will also send the lines already collected.
 
-## 6. Who did what
-- **NAME 1:** GitHub repository, producer program, data collection on the VM, this report.
-- **NAME 2:** to complete.
-- **NAME 3:** to complete.
+ Grace Yasmibe GitHub repository, producer program, data collection on the VM, this report.
+
