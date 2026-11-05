@@ -24,6 +24,7 @@ https://api.open-meteo.com/v1/forecast
 
 
 **What do we measure?** Temperature (°C), humidity (%), rain (mm), air pressure (hPa), wind speed (km/h) and cloud cover (%).
+example from paris
 
 <img width="672" height="319" alt="image" src="https://github.com/user-attachments/assets/e7d6e3b2-961c-43e6-a6b7-755796d19d8d" />
 
