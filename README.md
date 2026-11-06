@@ -1,7 +1,12 @@
-# Big Data Project - Weather streaming
+# Paris Weather Streaming: Cloud & Strong Wind Forecast
 
-Source: Open-Meteo API (free, no API key, licence CC BY 4.0)
+Big Data project: a real-time pipeline that collects the weather in Paris every 15 minutes and predicts whether it will be **cloudy** or **windy in the next hour**, so people can get ready before going out.
 
-Pipeline: Open-Meteo -> Python producer -> Kafka -> Spark -> HDFS -> ML -> TimescaleDB -> Grafana
+## Team
+- Grace Diagoné
 
-Team: Grace Diagoné - Muhammad Haseeb ANJUM - Sannan Sarwar DEV
+
+
+
+
+
